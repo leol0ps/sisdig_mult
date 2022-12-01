@@ -191,7 +191,7 @@ begin
          case state_reg is 
             when idle =>
                 led_next <= '0'&z_reg(7 downto 0);
-                if (k_done_tick = '1' and k_normal = '1')  then 
+                if (k_done_tick = '1' and k_normal = '1' and k_press)  then 
 
                     if k_key = "00100010" then -- teclou x
                         state_next <= send_x_equal;
@@ -200,11 +200,14 @@ begin
                     elsif k_key =  "00011011" then -- teclou start
                         start_mult <= '1';
                         state_next <= wait_mult; -- espera pelo done_tick do multiplicador
+					elsif k_key =  "01000100" then -- teclou output
+                        start_mult <= '1';
+                        state_next <= wait_mult; -- espera pelo done_tick do multiplicador
                     end if;
                 end if;
             when send_x_equal =>
                 led_next <= '0'&k_key;
-                if (k_done_tick = '1' and k_normal = '1')  then 
+                if (k_done_tick = '1' and k_normal = '1' and k_press)  then 
                     if k_key = "01010101" then
                         state_next <= send_x_h;
                         first_entry_next <= '1';
@@ -212,14 +215,14 @@ begin
                 end if;
             when send_y_equal =>
                 led_next <= '0'&k_key;
-                if (k_done_tick = '1' and k_normal = '1')  then 
+                if (k_done_tick = '1' and k_normal = '1' and k_press)  then 
                     if k_key = "01010101" then
                         state_next <= send_y_h; 
                         first_entry_next <= '1';
                     end if;
                 end if;    
             when send_x_h =>
-                if(k_done_tick = '1' and k_normal = '1') then
+                if(k_done_tick = '1' and k_normal = '1' and k_press) then
                         if(convert_error = '0') then
                             x_next(7 downto 4) <=  convertkb_bin;
                             state_next <= send_x_l;
@@ -227,7 +230,7 @@ begin
 					end if;
 			when send_x_l =>
 				led_next <= '0'&k_key;
-				if(k_done_tick = '1' and k_normal = '1') then
+				if(k_done_tick = '1' and k_normal = '1' and k_press) then
                         if(convert_error = '0') then 
                             x_next(3 downto 0) <= convertkb_bin;
                             state_next <= idle;
@@ -235,7 +238,7 @@ begin
                     end if;
             when send_y_h =>
 				led_next <= '0'&k_key;
-                 if(k_done_tick = '1' and k_normal = '1') then
+                 if(k_done_tick = '1' and k_normal = '1' and k_press) then
                         if(convert_error = '0') then
                             y_next(7 downto 4) <=  convertkb_bin;
                             state_next <= send_y_l;
@@ -243,7 +246,7 @@ begin
                     end if;
 			when send_y_l =>
 				led_next <= '0'&k_key;
-				if(k_done_tick = '1' and k_normal = '1') then
+				if(k_done_tick = '1' and k_normal = '1' and k_press) then
                         if(convert_error = '0') then
                             y_next(3 downto 0) <= convertkb_bin;
                             state_next <= idle;
