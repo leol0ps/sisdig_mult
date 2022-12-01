@@ -31,7 +31,7 @@ architecture radix4 of novomult is
     signal z_reg, z_next: unsigned(N*2-1 downto 0);
     signal x_reg, x_next: unsigned(N downto 0);
     signal y_reg, y_next: unsigned(N*2-1 downto 0);
-    signal n_reg, n_next: unsigned(N/2-2 downto 0);
+    signal n_reg, n_next: unsigned(N/2-1 downto 0);
     signal sum: unsigned(N*2-1 downto 0);
     signal triplet : unsigned(2 downto 0);
    
@@ -53,7 +53,7 @@ architecture radix4 of novomult is
                      n_reg <= n_next;
                 end if;    
         end process;
-        process(start,n_reg,x_reg,y_reg,z_reg,state_reg,sum)
+        process(start,n_reg,x_reg,y_reg,z_reg,state_reg,sum,x_in,y_in,n_next)
             begin
                 z_next <= z_reg;
                 n_next <= n_reg;
