@@ -51,7 +51,6 @@ signal z_reg: std_logic_vector(15 downto 0);
 signal reset_mult, start_mult, done_tick_mult: std_logic;
 signal wr_uart: std_logic;
 signal w_data: std_logic_vector(7 downto 0);
---signal valid_reg
 signal mult_done_tick: std_logic;
 signal uart_full: std_logic;
 CONSTANT DVSR : std_logic_vector (10 downto 0):= std_logic_vector(to_unsigned(324,11));
@@ -63,7 +62,7 @@ constant CHAR_EQ    : std_logic_vector(7 downto 0):="00111101";-- =
 constant CR : std_logic_vector(7 downto 0) := "00001101"; -- '\n'
 type state_type is (idle,wait_mult,done,send_x_equal,send_y_equal,send_x_h,send_x_l,send_y_h,send_y_l,print_uart);
 signal state_reg,state_next: state_type;
-signal k_normal,k_press,k_done_tick: std_logic;
+signal k_normal,k_press,k_done_tick,valid_reg,valid_next: std_logic;
 signal k_key: std_logic_vector(7 downto 0);
 signal convertkb_bin: std_logic_vector(3 downto 0);
 signal convert_error: std_logic;
@@ -170,6 +169,7 @@ begin
                 x_reg <= "00000000";
                 y_reg <= "00000000";
                 first_entry_reg <= '0';
+				valid_reg <= '0';
             elsif(clk'event and clk='1') then
                 state_reg <= state_next;
                 x_reg <= x_next;
@@ -177,10 +177,11 @@ begin
                 first_entry_reg <= first_entry_next;
                 counter_reg <= counter_next;
                 led_reg <= led_next;
+				valid_reg <= valid_next;
             end if;
     end process;
     process(state_reg,ascii,k_done_tick,x_reg,y_reg,state_next,led_reg,counter_reg,k_key,k_normal,convert_error,convertkb_bin,
-    done_tick_mult,first_entry_reg,y_ascii_h,x_ascii_l,y_ascii_l,x_ascii_h,z1_ascii_h,z1_ascii_l,z2_ascii_h,z2_ascii_l,ascii_print)
+    done_tick_mult,first_entry_reg,y_ascii_h,x_ascii_l,y_ascii_l,x_ascii_h,z1_ascii_h,z1_ascii_l,z2_ascii_h,z2_ascii_l,ascii_print,valid_reg)
         begin 
          led_next <= led_reg;
          counter_next <= counter_reg;
@@ -188,10 +189,11 @@ begin
          w_data <= SP;            
          state_next <= state_reg;
          first_entry_next <= first_entry_reg;
+		 valid_next <= valid_reg;
          case state_reg is 
             when idle =>
                 led_next <= '0'&z_reg(7 downto 0);
-                if (k_done_tick = '1' and k_normal = '1' and k_press)  then 
+                if (k_done_tick = '1' and k_normal = '1' and k_press = '1')  then 
 
                     if k_key = "00100010" then -- teclou x
                         state_next <= send_x_equal;
@@ -201,13 +203,18 @@ begin
                         start_mult <= '1';
                         state_next <= wait_mult; -- espera pelo done_tick do multiplicador
 					elsif k_key =  "01000100" then -- teclou output
-                        start_mult <= '1';
-                        state_next <= wait_mult; -- espera pelo done_tick do multiplicador
+						if(valid_reg = '0') then
+							start_mult <= '1';
+							state_next <= wait_mult; -- espera pelo done_tick do multiplicador
+						else
+						    counter_next <= "10011"; -- inicia contador com 19
+							state_next <= print_uart; 
+						end if;
                     end if;
                 end if;
             when send_x_equal =>
                 led_next <= '0'&k_key;
-                if (k_done_tick = '1' and k_normal = '1' and k_press)  then 
+                if (k_done_tick = '1' and k_normal = '1' and k_press = '1')  then 
                     if k_key = "01010101" then
                         state_next <= send_x_h;
                         first_entry_next <= '1';
@@ -215,14 +222,14 @@ begin
                 end if;
             when send_y_equal =>
                 led_next <= '0'&k_key;
-                if (k_done_tick = '1' and k_normal = '1' and k_press)  then 
+                if (k_done_tick = '1' and k_normal = '1' and k_press = '1')  then 
                     if k_key = "01010101" then
                         state_next <= send_y_h; 
                         first_entry_next <= '1';
                     end if;
                 end if;    
             when send_x_h =>
-                if(k_done_tick = '1' and k_normal = '1' and k_press) then
+                if(k_done_tick = '1' and k_normal = '1' and k_press ='1') then
                         if(convert_error = '0') then
                             x_next(7 downto 4) <=  convertkb_bin;
                             state_next <= send_x_l;
@@ -230,15 +237,16 @@ begin
 					end if;
 			when send_x_l =>
 				led_next <= '0'&k_key;
-				if(k_done_tick = '1' and k_normal = '1' and k_press) then
+				if(k_done_tick = '1' and k_normal = '1' and k_press = '1') then
                         if(convert_error = '0') then 
                             x_next(3 downto 0) <= convertkb_bin;
                             state_next <= idle;
+							valid_next <= '0';
                         end if;
                     end if;
             when send_y_h =>
 				led_next <= '0'&k_key;
-                 if(k_done_tick = '1' and k_normal = '1' and k_press) then
+                 if(k_done_tick = '1' and k_normal = '1' and k_press = '1') then
                         if(convert_error = '0') then
                             y_next(7 downto 4) <=  convertkb_bin;
                             state_next <= send_y_l;
@@ -246,10 +254,11 @@ begin
                     end if;
 			when send_y_l =>
 				led_next <= '0'&k_key;
-				if(k_done_tick = '1' and k_normal = '1' and k_press) then
+				if(k_done_tick = '1' and k_normal = '1' and k_press ='1') then
                         if(convert_error = '0') then
                             y_next(3 downto 0) <= convertkb_bin;
                             state_next <= idle;
+							valid_next <= '0';
                         end if;
                     end if;
             when   wait_mult =>
@@ -264,7 +273,8 @@ begin
                        print_array(2) <= z2_ascii_h;
                        print_array(1) <= z2_ascii_l;
                        counter_next <= "10011"; -- inicia contador com 19
-                       state_next <= print_uart;           
+                       state_next <= print_uart; 
+					   valid_next <= '1';
                   end if;
             when print_uart =>
                 led_next <= "000000010";
@@ -273,7 +283,7 @@ begin
                 
                 elsif counter_reg /= "00000" then
                     counter_next<= counter_reg-1;
-                    w_data<= ascii_print;
+                    w_data<= print_array(to_integer(counter_reg) - 1);
                     wr_uart <= '1';
                 else
                     state_next <= done;
@@ -282,5 +292,5 @@ begin
                 state_next <= idle;
             end case;
     end process;
-    led <= led_reg;
+    led <=  valid_reg & led_reg(7 downto  0);
 end Behavioral;
