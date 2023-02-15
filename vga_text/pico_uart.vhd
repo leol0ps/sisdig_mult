@@ -48,7 +48,7 @@ architecture arch of pico_uart is
    signal wr_uart, tx_full: std_logic;
    signal rx_char: std_logic_vector(7 downto 0);
    -- multiplier
-   signal m_src0_reg, m_src1_reg: std_logic_vector(7 downto 0);
+   signal m_src0_reg, m_src1_reg, a_end_reg,b_end_reg: std_logic_vector(7 downto 0);
    signal prod: std_logic_vector(15 downto 0);
    --DVSR = M-1, M=100_000_000/19200*16=325
    constant DVSR: std_logic_vector (10 downto 0):=std_logic_vector(to_unsigned(324,11));
@@ -94,8 +94,8 @@ in0(0) <= ds0_reg(6);
 -- =====================================================
 
    vga_unit: entity work.vga_ctrl
-		port map(clk =>clk, reset => reset, hsync => hsync, vsync => vsync, rgb => rgb, a_bcd0 => m_src0_reg(3 downto 0),
-		a_bcd1 => m_src0_reg(7 downto 4), b_bcd0 => m_src1_reg(3 downto 0),b_bcd1 => m_src1_reg(7 downto 4),
+		port map(clk =>clk, reset => reset, hsync => hsync, vsync => vsync, rgb => rgb, a_bcd0 => a_end_reg(3 downto 0),
+		a_bcd1 => a_end_reg(7 downto 4), b_bcd0 => b_end_reg(3 downto 0),b_bcd1 => b_end_reg(7 downto 4),
 		p_bcd0 => result_lsb_reg(3 downto 0), p_bcd1 => result_lsb_reg(7 downto 4), p_bcd2 => result_msb_reg(3 downto 0), result_msb_reg(7 downto 4) );
    btnc_db_unit: entity work.debounce
       port map(
@@ -157,6 +157,8 @@ constant erro_port, 04 ; flag de erro
    --      0x02: m_src0
    --      0x03: m_src1
    --      0x04: erro_port
+   --      0x05 a_port
+   --      0x06 b_port
    -- =====================================================
    -- registers
    process (clk)
@@ -167,6 +169,8 @@ constant erro_port, 04 ; flag de erro
          if en_d(4)='1' then erro_reg <= out_port; end if;
          if en_d(2)='1' then m_src0_reg <= out_port; end if;
          if en_d(3)='1' then m_src1_reg <= out_port; end if;
+         if en_d(5)='1' then a_end_reg <= out_port; end if;
+         if en_d(6)='1' then b_end_reg <= out_port; end if;
       end if;
    end process;
   -- decoding circuit for enable signals
