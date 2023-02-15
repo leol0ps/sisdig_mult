@@ -22,6 +22,7 @@ constant led0, 10
 constant led1, 11
 constant led2, 12
 constant led3, 13
+constant save, 14
 
 ;=========================================================
 ; Register alias
@@ -30,6 +31,8 @@ constant led3, 13
 namereg s0, data       ;reg for temporary data
 namereg s1, addr       ;reg for temporary mem & i/o port addr
 namereg s2, i          ;general-purpose loop index
+namereg s8, prod_lsb
+namereg s9, prod_msb
 ;global variables
 namereg sf, switch_a_b ;ram offset for current switch input 
 
@@ -116,8 +119,10 @@ chk_btns:
    test s3, 02             ;check s button flag
    jump z, proc_btn_done   ;flag not set
    input data, sw_port     ;get switch
+   ;check bcd
    load addr, a_lsb        ;get addr of a
    add addr, switch_a_b    ;add offset
+   
    store data, (addr)      ;write data to ram
    ;update current disp position
    xor switch_a_b, 02      ;toggle between 00, 02
@@ -147,14 +152,14 @@ sw_ok:
    add addr, s6            ;get lower addr
    fetch data, (s6)        ;get lower byte
    call get_lower_nibble   ;get lower nibble
-; digito da unidade (lsd) e salva num registrador qualquer ai
+; digito da unidade (lsb) e salva num registrador qualquer ai
    call hex_to_led         ;convert to led pattern
    store data, led0
    ;process byte 0, upper nibble
    fetch data, (addr)
 
    call get_upper_nibble                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-   ; digito de dezena (msd)
+   ; digito de dezena (msb)
    ; checa se é bcd
    ; func conversao; 
 			;mult por 10
@@ -201,92 +206,60 @@ disp_led:
    output data, sseg3_port
    return
 
+
+
+
 ;=========================================================
-;routine: hex_to_led
-;  function: convert a hex digit to 7-seg led pattern
+;routine: convert_bin_to_bcd
+;  function: check if it is a bcd number
 ;  input register: data
 ;  output register: data
 ;=========================================================
-hex_to_led:                 
-   compare data, 00         
-   jump nz, comp_hex_1    
-   load data, 81          ;7seg pattern 0
-   jump hex_done          
-comp_hex_1:                 
-   compare   data, 01         
-   jump nz, comp_hex_2    
-   load data, CF          ;7seg pattern 1
-   jump hex_done          
-comp_hex_2:                 
-   compare data, 02         
-   jump nz, comp_hex_3    
-   load data, 92          ;7seg pattern 2
-   jump hex_done          
-comp_hex_3:                 
-   compare data, 03         
-   jump nz, comp_hex_4    
-   load data, 86          ;7seg pattern 3
-   jump hex_done          
-comp_hex_4:                 
-   compare data, 04         
-   jump nz, comp_hex_5    
-   load data, CC          ;7seg pattern 4
-   jump hex_done          
-comp_hex_5:                 
-   compare data, 05         
-   jump nz, comp_hex_6    
-   load data, A4          ;7seg pattern 5
-   jump hex_done          
-comp_hex_6:                 
-   compare data, 06         
-   jump nz, comp_hex_7    
-   load data, A0          ;7seg pattern 6
-   jump hex_done          
-comp_hex_7:                 
-   compare data, 07         
-   jump nz, comp_hex_8    
-   load data, 8F          ;7seg pattern 7
-   jump hex_done          
-comp_hex_8:                 
-   compare data, 08         
-   jump nz, comp_hex_9    
-   load data, 80          ;7seg pattern 8
-   jump hex_done          
-comp_hex_9:                 
-   compare data, 09         
-   jump nz, comp_hex_a    
-   load data, 84          ;7seg pattern 9
-   jump hex_done          
-comp_hex_a:                 
-   compare data, 0A         
-   jump nz, comp_hex_b    
-   load data, 88          ;7seg pattern a
-   jump hex_done          
-comp_hex_b:
-   compare data, 0B
-   jump nz, comp_hex_c
-   load data, E0          ;7seg pattern b
-   jump hex_done
-comp_hex_c:
-   compare data, 0C
-   jump nz, comp_hex_d
-   load data, B1          ;7seg pattern C
-   jump hex_done
-comp_hex_d:
-   compare data, 0D
-   jump nz, comp_hex_e
-   load data, C2          ;7seg pattern d
-   jump hex_done
-comp_hex_e:
-   compare data, 0E
-   jump nz, comp_hex_f
-   load data, B0          ;7seg pattern E
-   jump hex_done
-comp_hex_f:
-   load data, B8          ;7seg pattern f
-hex_done:
-   return
-
+convert_bin_to_bcd:
+	fetch s3,prod_lsb;
+	fetch s4, prod_msb
+	load i,16;
+	AND s5,0 ;BCD0,BCD1
+	AND S6,0 ;BC1,BCD2
+alg_loop:
+	;CHECAR SE ALGUM DIGITO BCD É MAIOR QUE 4
+	load s7,s5
+	AND s7,0F ; BCD0
+	compare s7,04 ; bcd0 >4?
+	jump c, BCD1_label ; nop
+	ADD s7,03 ;yes +3
+BCD1_label:
+	load s8,s5
+	AND s8,F0;BCD1
+	compare s8,40; bcd1 > 4?
+	jump c, BCD2_label ; nop
+	ADD s8,30; yes +3
+BCD2_label:
+	load s9,s6 
+	AND s9,0F; BCD2
+	compare s9,04; bcd2 >4?
+	jump c BCD3_label ; nop
+	ADD s9,03 ; yes
+BCD3_label:
+	load sA,s6
+	AND sA,F0; BCD4
+	compare sA,40; BCD4 >4?
+	jump c, shift_pronto; nop
+	ADD sA,03; yes
+shift_pronto:
+	AND s5,0;
+	ADD s5,s7;
+	ADD s5,s8;
+	AND s6,0;
+	ADD s6,s9
+	ADD s6,sA
+	sl0 s3
+	slA s4;
+	slA s5
+	slA s6
+	sub i, 01              ;dec loop index
+	jump nz, mult_loop     ;repeat until i=0
+	return
 ;=========================================================
 ;routine: convert_bcd_to_bin
 ;  function: check if it is a bcd number
