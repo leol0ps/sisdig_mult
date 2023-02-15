@@ -1,5 +1,5 @@
 ;=========================================================
-; Square circuit with 7-seg LED interface 
+; multiplication circuit with bcd input/output
 ;=========================================================
 ;Program operation:
 ;  - read a and b from switch
@@ -27,8 +27,8 @@ constant p_bcd_result_lsb,15
 constant p_bcd_result_msb,16
 constant a_bin, 17
 constant b_bin, 18
-constant prod_lsb
-constant prod_msb
+constant prod_lsb, 19
+constant prod_msb, 20
 
 ;=========================================================
 ; Register alias
@@ -49,8 +49,8 @@ constant sw_port, 01       ;8-bit switch
 constant mult_prod0_port, 02   ;multiplication product 8 LSBs
 constant mult_prod1_port, 03   ;multiplication product 8 MSBs
 ;------------output port definitions---------------------
-constant result_lsb_port,     00    ;7-seg led 0
-constant result_msb_port,     01    ;7-seg led 1
+constant result_lsb_port,     00    ;
+constant result_msb_port,     01    ;
 constant mult_src0_port, 02    ;multiplier operand 0
 constant mult_src1_port, 03    ;multiplier operand 1
 constant erro_port, 04 ; flag de erro
@@ -139,8 +139,10 @@ proc_btn_done:
 ;=========================================================
 final_bcd_result:
 	load data, prod_lsb
-	output data, 
-
+	output data, result_lsb_port
+	load data, prod_msb
+	output data, result_msb_port
+	return
 ;=========================================================
 ;routine: multab
 ;  function: get  a*b bin result
@@ -164,39 +166,43 @@ multab:
 convert_bin_to_bcd:
 	fetch s3,prod_lsb;
 	fetch s4, prod_msb
-	load i,16;
-	AND s5,0 ;BCD0,BCD1
-	AND S6,0 ;BC1,BCD2
+	load i,10;
+	AND s5,00 ;BCD0,BCD1
+	AND S6,00 ;BC1,BCD2
 alg_loop:
 	;CHECAR SE ALGUM DIGITO BCD É MAIOR QUE 4
 	load s7,s5
 	AND s7,0F ; BCD0
-	compare 05,s7 ; bcd0 >4?
+	load sE, 05
+	compare sE,s7 ; bcd0 >4?
 	jump c, BCD1_label ; nop
 	ADD s7,03 ;yes +3
 BCD1_label:
 	load s8,s5
 	AND s8,F0;BCD1
-	compare 50,s8; bcd1 > 4?
+	load sE, 50
+	compare sE,s8; bcd1 > 4?
 	jump c, BCD2_label ; nop
 	ADD s8,30; yes +3
 BCD2_label:
 	load s9,s6 
 	AND s9,0F; BCD2
-	compare 05,s9; bcd2 >4?
-	jump c BCD3_label ; nop
+	load sE,05
+	compare sE,s9; bcd2 >4?
+	jump c, BCD3_label ; nop
 	ADD s9,03 ; yes
 BCD3_label:
 	load sA,s6
 	AND sA,F0; BCD3
-	compare 50,sA; BCD3 >4?
+	load sE,50
+	compare sE,sA; BCD3 >4?
 	jump c, shift_pronto; nop
 	ADD sA,30; yes
 shift_pronto:
-	AND s5,0;
+	AND s5,00;
 	ADD s5,s7;
 	ADD s5,s8;
-	AND s6,0;
+	AND s6,00;
 	ADD s6,s9
 	ADD s6,sA
 	sl0 s3
@@ -215,11 +221,11 @@ shift_pronto:
 ;  output register: data
 ;=========================================================
 convert_bcd_to_bin:
-	load i,8
+	load i,08
 	fetch s3,a_lsb;
 	fetch s4,b_lsb;
-	AND s5,0; a_bin
-	AND s6,0; b_bin
+	AND s5,00; a_bin
+	AND s6,00; b_bin
 convert_loop:
 	sr0 s3; shift right a
 	srA s5;
@@ -230,11 +236,13 @@ convert_loop:
 	load s8,s3
 	AND s7,0F ; a_bcd0
 	AND s8,F0 ; a_bcd1
-	compare 08,s7 ; bcd0>7?
+	load sE,08
+	compare sE,s7 ; bcd0>7?
 	jump c, next_bcd; nop
 	sub s7,03
 next_bcd:
-	compare 80,s8; bcd1>7?
+	load sE,80
+	compare sE,s8; bcd1>7?
 	jump c,b_part
 	sub s8,30
 b_part:
@@ -242,16 +250,18 @@ b_part:
 	load sA,s4
 	AND s9,0F ; b_bcd0
 	AND sA,F0 ; b_bcd1
-	compare 08,s9 ; bcd0>7?
+	load sE,08
+	compare sE,s9 ; bcd0>7?
 	jump c, next_bcd_b; nop
 	sub s7,03
 next_bcd_b:
-	compare 80,sA; bcd1>7?
+	load sE,80
+	compare sE,sA; bcd1>7?
 	jump c, sum_bcd
 	sub s8,30
 sum_bcd:
-	load s3,0;
-	load s4,0;
+	load s3,00;
+	load s4,00;
 	ADD s3,s7
 	ADD s3,s8
 	ADD s4,s9
@@ -269,14 +279,16 @@ sum_bcd:
 ;  output register: data
 ;=========================================================
 check_bcd_valid:
-	compare data, 10 ;
-	jump c valid
+	compare data, 0A ;
+	jump c, valid
 	jump bcd_error 
 valid:
-		output 00, erro_port
+		load data, 00
+		output data, erro_port
 		return
 bcd_error:
-	output ff, erro_port
+	load data, ff
+	output data, erro_port
 	return
 	;enviar error
 

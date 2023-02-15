@@ -5,6 +5,7 @@ use ieee.numeric_std.all;
 entity vga_ctrl is
    port(
       clk, reset: in std_logic;
+	  a_bcd1,a_bcd0,b_bcd1,b_bcd0,p_bcd0,p_bcd1,p_bcd2,p_bcd3: in std_logic_vector(3 downto 0);
       hsync, vsync: out std_logic;
       rgb: out   std_logic_vector (11 downto 0)--modificado
    );
@@ -36,7 +37,7 @@ begin
    text_unit: entity work.vga_mult_result
       port map(clk=>clk, reset=>reset,
                pixel_x=>pixel_x, pixel_y=>pixel_y,
-               a_bcd0=>dig0, a_bcd1=>dig1,b_bcd0 =>dig0,b_bcd1 => dig1,p_bcd3 => dig0,p_bcd2 => dig1,p_bcd1 => dig0,p_bcd0 => dig1, ball=>ball,
+               a_bcd0=>a_bcd0, a_bcd1=>a_bcd1,b_bcd0 =>b_bcd0,b_bcd1 => b_bcd1,p_bcd3 => p_bcd3,p_bcd2 => p_bcd2,p_bcd1 => p_bcd1,p_bcd0 => p_bcd0, ball=>ball,
                text_on=>text_on, text_rgb=>text_rgb);
 
    -- instantiate 2 sec timer

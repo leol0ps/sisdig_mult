@@ -1,0 +1,318 @@
+                    ;=========================================================
+                    ; multiplication circuit with bcd input/output
+                    ;=========================================================
+                    ;Program operation:
+                    ;  - read a and b from switch
+                    ;  - calculate a*b
+                    ;  - display data on vga
+                    ;=========================================================
+                    ; Data ram address alias
+                    ;=========================================================
+                    CONSTANT a_lsb, 00
+                    CONSTANT b_lsb, 02
+                    CONSTANT aa_lsb, 04
+                    CONSTANT aa_msb, 05
+                    CONSTANT bb_lsb, 06
+                    CONSTANT bb_msb, 07
+                    CONSTANT aabb_lsb, 08
+                    CONSTANT aabb_msb, 09
+                    CONSTANT aabb_cout, 0A
+                    CONSTANT led0, 10
+                    CONSTANT led1, 11
+                    CONSTANT led2, 12
+                    CONSTANT led3, 13
+                    CONSTANT save, 14
+                    CONSTANT p_bcd_result_lsb, 15
+                    CONSTANT p_bcd_result_msb, 16
+                    CONSTANT a_bin, 17
+                    CONSTANT b_bin, 18
+                    CONSTANT prod_lsb, 19
+                    CONSTANT prod_msb, 20
+                    ;=========================================================
+                    ; Register alias
+                    ;=========================================================
+                    ;commonly used local variables
+                    NAMEREG s0, data              ;reg for temporary data
+                    NAMEREG s1, addr              ;reg for temporary mem & i/o port addr
+                    NAMEREG s2, i                 ;general-purpose loop index
+                    ;global variables
+                    NAMEREG sF, switch_a_b        ;ram offset for current switch input
+                    ;=========================================================
+                    ; Port alias
+                    ;=========================================================
+                    ;------------input port definitions---------------------
+                    CONSTANT rd_flag_port, 00     ;2 flags (xxxxxxsc):
+                    CONSTANT sw_port, 01          ;8-bit switch
+                    CONSTANT mult_prod0_port, 02  ;multiplication product 8 LSBs
+                    CONSTANT mult_prod1_port, 03  ;multiplication product 8 MSBs
+                    ;------------output port definitions---------------------
+                    CONSTANT result_lsb_port, 00  ;
+                    CONSTANT result_msb_port, 01  ;
+                    CONSTANT mult_src0_port, 02   ;multiplier operand 0
+                    CONSTANT mult_src1_port, 03   ;multiplier operand 1
+                    CONSTANT erro_port, 04        ; flag de erro
+                    ;=========================================================
+                    ; Main program
+                    ;=========================================================
+                    ;Calling hierarchy:
+                    ;
+                    ;main
+                    ;  - init
+                    ;  - proc_btn
+                    ;      - init
+                    ;  - convert_bcd_to_bin
+                    ;  - multab
+                    ;    - mult_hard
+                    ;  - convert_bin_to_bcd
+                    ;  - port output
+                    ; =========================================================
+                    CALL init                     ;initialization
+           forever: 
+                    ;main loop body
+                    CALL proc_btn                 ;check & process buttons
+                    CALL convert_bcd_to_bin       ;
+                    CALL multab                   ;calculate a*b
+                    CALL convert_bin_to_bcd
+                    CALL final_bcd_result         ; output produto bcd final
+                    JUMP forever
+                    ;=========================================================
+                    ;routine: init
+                    ;  function: perform initialization, clear register/ram
+                    ;  output register:
+                    ;    switch_a_b: cleared to 0
+                    ;  temp register: data, i
+                    ;=========================================================
+              init: 
+                    ;clear memory
+                    LOAD i, 40                    ;unitize loop index to 64
+                    LOAD data, 00
+      clr_mem_loop: 
+                    STORE data, (i)
+                    SUB i, 01                     ;dec loop index
+                    JUMP NZ, clr_mem_loop         ;repeat until i=0
+                    ;clear register
+                    LOAD switch_a_b, 00
+                    RETURN 
+                    ;=========================================================
+                    ;routine: proc_btn
+                    ;  function: check two buttons and process the display
+                    ;  input reg:
+                    ;     switch_a_b: ram offset (0 for a and 2 for b)
+                    ;  output register:
+                    ;     s3: store input port flag
+                    ;     switch_a_b: may be toggled
+                    ;  temp register used: data, addr
+                    ;=========================================================
+          proc_btn: 
+                    INPUT s3, rd_flag_port        ;get flag
+                    ;check and process c button
+                    TEST s3, 01                   ;check c button flag
+                    JUMP Z, chk_btns              ;flag not set
+                    CALL init                     ;flag set, clear
+                    JUMP proc_btn_done
+          chk_btns: 
+                    ;check and process s button
+                    TEST s3, 02                   ;check s button flag
+                    JUMP Z, proc_btn_done         ;flag not set
+                    INPUT data, sw_port           ;get switch
+                    CALL check_bcd_valid          ;check bcd
+                    LOAD addr, a_lsb              ;get addr of a
+                    ADD addr, switch_a_b          ;add offset
+                    STORE data, (addr)            ;write data to ram
+                    ;update current disp position
+                    XOR switch_a_b, 02            ;toggle between 00, 02
+     proc_btn_done: 
+                    RETURN 
+                    ;=========================================================
+                    ;routine:  final_bcd_result
+                    ;  function: returns  multiplication result in bcd
+                    ;=========================================================
+  final_bcd_result: 
+                    LOAD data, prod_lsb
+                    OUTPUT data, result_lsb_port
+                    LOAD data, prod_msb
+                    OUTPUT data, result_msb_port
+                    RETURN 
+                    ;=========================================================
+                    ;routine: multab
+                    ;  function: get  a*b bin result
+                    ;=========================================================
+            multab: 
+                    FETCH s3, a_bin
+                    FETCH s4, b_bin
+                    CALL mult_hard
+                    STORE s5, prod_lsb            ;
+                    STORE s6, prod_msb
+                    RETURN 
+                    ;=========================================================
+                    ;routine: convert_bin_to_bcd
+                    ;  function: check if it is a bcd number
+                    ;  input register:
+                    ;  output register:
+                    ;=========================================================
+convert_bin_to_bcd: 
+                    FETCH s3, prod_lsb            ;
+                    FETCH s4, prod_msb
+                    LOAD i, 10                    ;
+                    AND s5, 00                    ;BCD0,BCD1
+                    AND s6, 00                    ;BC1,BCD2
+          alg_loop: 
+                    ;CHECAR SE ALGUM DIGITO BCD É MAIOR QUE 4
+                    LOAD s7, s5
+                    AND s7, 0F                    ; BCD0
+                    LOAD sE, 05
+                    COMPARE sE, s7                ; bcd0 >4?
+                    JUMP C, BCD1_label            ; nop
+                    ADD s7, 03                    ;yes +3
+        BCD1_label: 
+                    LOAD s8, s5
+                    AND s8, F0                    ;BCD1
+                    LOAD sE, 50
+                    COMPARE sE, s8                ; bcd1 > 4?
+                    JUMP C, BCD2_label            ; nop
+                    ADD s8, 30                    ; yes +3
+        BCD2_label: 
+                    LOAD s9, s6
+                    AND s9, 0F                    ; BCD2
+                    LOAD sE, 05
+                    COMPARE sE, s9                ; bcd2 >4?
+                    JUMP C, BCD3_label            ; nop
+                    ADD s9, 03                    ; yes
+        BCD3_label: 
+                    LOAD sA, s6
+                    AND sA, F0                    ; BCD3
+                    LOAD sE, 50
+                    COMPARE sE, sA                ; BCD3 >4?
+                    JUMP C, shift_pronto          ; nop
+                    ADD sA, 30                    ; yes
+      shift_pronto: 
+                    AND s5, 00                    ;
+                    ADD s5, s7                    ;
+                    ADD s5, s8                    ;
+                    AND s6, 00                    ;
+                    ADD s6, s9
+                    ADD s6, sA
+                    SL0 s3
+                    SLA s4                        ;
+                    SLA s5
+                    SLA s6
+                    SUB i, 01                     ;dec loop index
+                    JUMP NZ, alg_loop             ;repeat until i=0
+                    STORE s5, p_bcd_result_lsb
+                    STORE s6, p_bcd_result_msb
+                    RETURN 
+                    ;=========================================================
+                    ;routine: convert_bcd_to_bin
+                    ;  function: check if it is a bcd number
+                    ;  input register: data
+                    ;  output register: data
+                    ;=========================================================
+convert_bcd_to_bin: 
+                    LOAD i, 08
+                    FETCH s3, a_lsb               ;
+                    FETCH s4, b_lsb               ;
+                    AND s5, 00                    ; a_bin
+                    AND s6, 00                    ; b_bin
+      convert_loop: 
+                    SR0 s3                        ; shift right a
+                    SRA s5                        ;
+                    SR0 s4                        ; shift right b
+                    SRA s6                        ;
+                    ;checar se  bcd > 7 se for subtrair 3
+                    LOAD s7, s3
+                    LOAD s8, s3
+                    AND s7, 0F                    ; a_bcd0
+                    AND s8, F0                    ; a_bcd1
+                    LOAD sE, 08
+                    COMPARE sE, s7                ; bcd0>7?
+                    JUMP C, next_bcd              ; nop
+                    SUB s7, 03
+          next_bcd: 
+                    LOAD sE, 80
+                    COMPARE sE, s8                ; bcd1>7?
+                    JUMP C, b_part
+                    SUB s8, 30
+            b_part: 
+                    LOAD s9, s4
+                    LOAD sA, s4
+                    AND s9, 0F                    ; b_bcd0
+                    AND sA, F0                    ; b_bcd1
+                    LOAD sE, 08
+                    COMPARE sE, s9                ; bcd0>7?
+                    JUMP C, next_bcd_b            ; nop
+                    SUB s7, 03
+        next_bcd_b: 
+                    LOAD sE, 80
+                    COMPARE sE, sA                ; bcd1>7?
+                    JUMP C, sum_bcd
+                    SUB s8, 30
+           sum_bcd: 
+                    LOAD s3, 00                   ;
+                    LOAD s4, 00                   ;
+                    ADD s3, s7
+                    ADD s3, s8
+                    ADD s4, s9
+                    ADD s4, sA
+                    SUB i, 01                     ;dec loop index
+                    JUMP NZ, convert_loop         ;repeat until i=0
+                    STORE s5, a_bin
+                    STORE s6, b_bin
+                    RETURN 
+                    ;=========================================================
+                    ;routine: check_bcd_valid
+                    ;  function: check if it is a bcd number
+                    ;  input register: data
+                    ;  output register: data
+                    ;=========================================================
+   check_bcd_valid: 
+                    COMPARE data, 10              ;
+                    JUMP C, valid
+                    JUMP bcd_error
+             valid: 
+                    LOAD data, 00
+                    OUTPUT data, erro_port
+                    RETURN 
+         bcd_error: 
+                    LOAD data, FF
+                    OUTPUT data, erro_port
+                    RETURN 
+                    ;enviar error
+                    ;=========================================================
+                    ;routine: get_lower_nibble
+                    ;  function: get lower 4-bit of data
+                    ;  input register: data
+                    ;  output register: data
+                    ;=========================================================
+  get_lower_nibble: 
+                    AND data, 0F                  ;clear upper nibble
+                    RETURN 
+                    ;=========================================================
+                    ;routine: get_lupper_nible
+                    ;  function: get upper 4-bit of in_data
+                    ;  input register: data
+                    ;  output register: data
+                    ;=========================================================
+  get_upper_nibble: 
+                    SR0 data                      ;right shift 4 times
+                    SR0 data
+                    SR0 data
+                    SR0 data
+                    RETURN 
+                    ;=========================================================
+                    ;routine: mult_hard
+                    ;  function: 8-bit unsigned multiplication using
+                    ;            external combinational multilplier;
+                    ;  input register:
+                    ;     s3: multiplicand
+                    ;     s4: multiplier
+                    ;  output register:
+                    ;     s5: upper byte of product
+                    ;     s6: lower byte of product
+                    ;  temp register:
+                    ;=========================================================
+         mult_hard: 
+                    OUTPUT s3, mult_src0_port
+                    OUTPUT s4, mult_src1_port
+                    INPUT s5, mult_prod0_port     ; lower
+                    INPUT s6, mult_prod1_port     ; upper
+                    RETURN 
