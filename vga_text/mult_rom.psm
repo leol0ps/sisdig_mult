@@ -54,6 +54,8 @@ constant result_msb_port,     01    ;
 constant mult_src0_port, 02    ;multiplier operand 0
 constant mult_src1_port, 03    ;multiplier operand 1
 constant erro_port, 04 ; flag de erro
+constant a_port, 05
+constant b_port, 06 
 
 ;=========================================================
 ; Main program
@@ -124,6 +126,8 @@ chk_btns:
    jump z, proc_btn_done   ;flag not set
    input data, sw_port     ;get switch
    call check_bcd_valid;check bcd
+   compare s3,ff
+   jump z, proc_btn_done
    load addr, a_lsb        ;get addr of a
    add addr, switch_a_b    ;add offset
    
@@ -142,6 +146,10 @@ final_bcd_result:
 	output data, result_lsb_port
 	load data, prod_msb
 	output data, result_msb_port
+    load data, a_lsb
+    output data, a_port
+    load data, b_lsb
+    output data, b_port
 	return
 ;=========================================================
 ;routine: multab
@@ -279,18 +287,29 @@ sum_bcd:
 ;  output register: data
 ;=========================================================
 check_bcd_valid:
-	compare data, 0A ;
-	jump c, valid
-	jump bcd_error 
+   load s3, data
+   AND s3,0F ; lsb of data
+	compare s3, 0A 
+	jump c, valid_1
+	jump bcd_error
+valid_1:
+   load s3,data
+   AND s3,F0 ; msb of data
+   compare s3,A0
+   jump c, valid
+   jump bcd_error
 valid:
-		load data, 00
+      load data,00
 		output data, erro_port
+      load s3, 00
 		return
 bcd_error:
-	load data, ff
+   load data, ff
 	output data, erro_port
+   load s3, ff
 	return
 	;enviar error
+
 
 
 ;=========================================================
@@ -337,7 +356,6 @@ mult_hard:
    input s5, mult_prod0_port ; lower
    input s6, mult_prod1_port ; upper
    return
-
 
 
 
